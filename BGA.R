@@ -889,8 +889,8 @@ fits %>%
 
 fits %>%
   group_by(Strain) %>%
-  summarise(Mean = mean(fit),
-            SD = sd(fit)) %>%
+  summarise(Mean = mean(mu_max),
+            SD = sd(mu_max)) %>%
   ggplot(aes(Strain, Mean)) +
   geom_pointrange(aes(ymin = Mean - SD, ymax = Mean + SD)) +
   theme_classic()
