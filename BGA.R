@@ -817,3 +817,196 @@ quartz.save(type = 'pdf',
 
 
 
+###################################
+###   Bacterial Growth curves   ###
+###   final data for paper      ###   
+###################################
+
+
+library(growthrates)
+
+
+time.data
+
+## data preparation: delete some time-points that are a bit shitty
+# try to delete the first and last timepoints 
+time.data2 = time.data[time.data$Time_h > 0.4 & time.data$Time_h < 15,]
+# delete TMP rep 3, and replace it with a corrected one
+TMP.corrected = time.data2[time.data2$Strain == 'TMP' & time.data2$Replicate == 3 & time.data2$Time_h >= 2,]
+time.data2 = time.data2 %>% filter(!(Strain == 'TMP' & Replicate == 3)) %>% rbind(TMP.corrected)
+# correct first value of CtrSoy
+time.data2[time.data2$Strain == 'CtrSoy' & time.data2$Replicate == 3, ][1:2,]$OD = 0.00120
+
+# delete first 3 timepoints from Strain == 'CtrTryp', Replicate == 1
+CtrTryp.corrected = time.data2[time.data2$Strain == 'CtrTryp' & time.data2$Replicate == 1 & time.data2$Time_h >= 1,]
+time.data2 = time.data2 %>% filter(!(Strain == 'CtrTryp' & Replicate == 1)) %>% rbind(CtrTryp.corrected)
+
+# some tests
+test = time.data2 %>% filter(Data == '595nm_f',Strain == 'Control', Replicate == 1)
+fit = fit_easylinear(test$Time_h, test$OD, h = 10, quota = 0.95)
+summary(fit)
+par(mfrow = c(1, 2))
+plot(fit, log = "y")
+plot(fit)
+
+
+test2 = time.data2 %>% filter(Data == '595nm_f',Strain == 'CtrSoy', Replicate == 3)
+fit = fit_easylinear(test2$Time_h, test2$OD, h = 10, quota = 0.95)
+summary(fit)
+par(mfrow = c(1, 2))
+plot(fit, log = "y")
+plot(fit)
+
+
+
+
+easyfit = function(df, h){
+  fit = fit_easylinear(df$Time_h, df$OD, h = h)
+  return(coef(fit)[3])
+}
+
+# nested data
+nested = time.data2 %>%
+  filter(Data == '595nm_f') %>%
+  mutate(OD = ifelse(OD == 0, 0.001, OD)) %>%
+  filter(!Strain %in% c('HK', 'UV', 'Carb', 'MR', 'MR_Met', 'TMPR', 'TMPR_TMP')) %>%
+  group_by(Strain, Replicate) %>%
+  nest() 
+
+fits = nested %>%
+  mutate(fit = map(data, easyfit, 15))
+
+fits = fits %>% 
+  select(Strain, Replicate, mu_max = fit) %>% 
+  unnest() %>%
+  arrange(Strain)
+
+fits %>%
+  ggplot(aes(x = Strain, y = fit)) +
+  geom_point() +
+  theme_classic()
+
+
+fits %>%
+  group_by(Strain) %>%
+  summarise(Mean = mean(fit),
+            SD = sd(fit)) %>%
+  ggplot(aes(Strain, Mean)) +
+  geom_pointrange(aes(ymin = Mean - SD, ymax = Mean + SD)) +
+  theme_classic()
+
+fits.sum = fits %>%
+  group_by(Strain) %>%
+  summarise(Mean = mean(mu_max),
+            SD = sd(mu_max)) 
+
+# save statistics list
+list_of_datasets = list('Growth rate' = fits, 'Growth rate summary' = fits.sum)
+
+write.xlsx(list_of_datasets, 'Growth_rate.xlsx', colNames = T, rowNames = F) 
+
+
+
+###############
+### TESTING ZONE
+
+
+
+# # check that everything works as usual
+# for (i in 1:42){
+#   print(paste0('Analysing dataset number: ', i))
+#   print(paste0('Bacteria ', nested[i,]$Strain, ', Replicate ', nested[i,2]))
+#   easyfit(nested$data[[i]])
+# }
+
+
+
+# Control plots
+test = time.data2 %>% filter(Data == '595nm_f',Strain == 'CtrSoy', Replicate == 1)
+fit = fit_easylinear(test$Time_h, test$OD, h = 12, quota = 0.95)
+summary(fit)
+par(mfrow = c(1, 2))
+plot(fit, log = "y")
+plot(fit)
+
+test = time.data2 %>% filter(Data == '595nm_f',Strain == 'CtrSoy', Replicate == 2)
+fit = fit_easylinear(test$Time_h, test$OD, h = 15, quota = 0.95)
+summary(fit)
+par(mfrow = c(1, 2))
+plot(fit, log = "y")
+plot(fit)
+
+test = time.data2 %>% filter(Data == '595nm_f',Strain == 'CtrSoy', Replicate == 3)
+fit = fit_easylinear(test$Time_h, test$OD, h = 15, quota = 0.95)
+summary(fit)
+par(mfrow = c(1, 2))
+plot(fit, log = "y")
+plot(fit)
+
+
+
+
+# CtrSoy plots
+test = time.data2 %>% filter(Data == '595nm_f',Strain == 'CtrTryp', Replicate == 1)
+fit = fit_easylinear(test$Time_h, test$OD, h = 13, quota = 0.95)
+summary(fit)
+par(mfrow = c(1, 2))
+plot(fit, log = "y")
+plot(fit)
+
+test = time.data2 %>% filter(Data == '595nm_f',Strain == 'CtrTryp', Replicate == 2)
+fit = fit_easylinear(test$Time_h, test$OD, h = 13, quota = 0.95)
+summary(fit)
+par(mfrow = c(1, 2))
+plot(fit, log = "y")
+plot(fit)
+
+test = time.data2 %>% filter(Data == '595nm_f',Strain == 'CtrTryp', Replicate == 3)
+fit = fit_easylinear(test$Time_h, test$OD, h = 13, quota = 0.95)
+summary(fit)
+par(mfrow = c(1, 2))
+plot(fit, log = "y")
+plot(fit)
+
+
+
+
+
+
+
+
+
+
+
+
+########################
+# manual way of calculating growth rate
+
+
+gr = function(df, window = 5, tp = 4){
+    dim(test)[1] / window
+} 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
